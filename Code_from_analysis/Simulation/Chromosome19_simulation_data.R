@@ -10,6 +10,18 @@ setwd('C:/Users/sagee/OneDrive/Documents/GitHub/RAREsim_Example/Stratified_Targe
 gnom_strat <- read.table('AFS_target_data_stratified.txt', header =  TRUE, sep  = '\t')
 nvar_gnom_strat <- read.table('Nvariants_target_data_stratified.txt', header =  TRUE, sep  = '\t')
 
+### Convert AFs to ACs
+# Note that the AFS is only for rare variants which is why the AFs don't sum to 1
+# or the ACs don't sume to the total
+gnom_strat$Singletons <- gnom_strat$MAC_1*gnom_strat$total
+gnom_strat$Doubletons <- gnom_strat$MAC_2*gnom_strat$total
+gnom_strat$MAC.3.5 <- gnom_strat$MAC_3.5*gnom_strat$total
+gnom_strat$MAC.6.10 <- gnom_strat$MAC_6.10*gnom_strat$total
+gnom_strat$MAC.11.20 <- gnom_strat$MAC_11.20*gnom_strat$total
+gnom_strat$MAC.21.MAF005 <- gnom_strat$MAC_21.MAF0.5*gnom_strat$total
+gnom_strat$MAF005.MAF01 <- gnom_strat$MAF0.5.1*gnom_strat$total
+
+
 setwd('C:/Users/sagee/OneDrive/Documents/GitHub/RAREsim_Example/Code_from_analysis/Simulation/')
 gnom <- read.table('AFS_data_blocks_merged.txt', header =  TRUE, sep  = '\t')
 
@@ -237,6 +249,23 @@ gnom <- gnom[,c(1,10,2:8)]
 gnom$rep <- '.'
 gnom$data <- 'gnomAD'
 
+####
+names(gnom_strat)
+gnom_strat <- gnom_strat[, c(1, 10, 12:18, 11)]
+gnom_strat$rep <- '.'
+gnom_fun <- gnom_strat[gnom_strat$fun == 'fun', ]
+gnom_syn <- gnom_strat[gnom_strat$fun == 'syn', ]
+gnom_fun$data <- 'gnomAD functional'
+gnom_syn$data <- 'gnomAD synonymous'
+gnom_fun <- subset(gnom_fun, select = -fun)
+gnom_syn <- subset(gnom_syn, select = -fun)
+names(gnom) <- names(mac)
+
+mac_all <- rbind(mac, gnom)
+mac_all <- rbind(mac_all, gnom_fun)
+mac_all <- rbind(mac_all, gnom_syn)
+####
+
 names(gnom) <- names(mac)
 mac <- rbind(mac,gnom)
 
@@ -252,6 +281,16 @@ colnames(mac)[9] <- 'MAF=0.5%-1%'
 table(mac$data)
 # write.table(mac, 'Simulation_results100reps_chr19_final.txt', row.names = FALSE,
 #             quote = FALSE, sep = '\t')
+
+colnames(mac_all)[5] <- 'MAC=3-5'
+colnames(mac_all)[6] <- 'MAC=6-10'
+colnames(mac_all)[7] <- 'MAC=11-20'
+colnames(mac_all)[8] <- 'MAC=21-MAF=0.5%'
+colnames(mac_all)[9] <- 'MAF=0.5%-1%'
+
+table(mac_all$data)
+write.table(mac_all, 'mac_all_chr19_final.txt', row.names = FALSE,
+            quote = FALSE, sep = '\t')
 
 
 ##### get the results for the final table:

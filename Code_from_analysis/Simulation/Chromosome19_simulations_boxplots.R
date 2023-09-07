@@ -10,18 +10,22 @@
 # setwd('/Users/megansorenson/Documents/Package/RAREsim_Example/Code_from_analysis/Simulation/')
 setwd('C:/Users/sagee/OneDrive/Documents/GitHub/RAREsim_Example/Code_from_analysis/Simulation/')
 mac <- read.table('Simulation_results100reps_chr19_final.txt', header = TRUE, sep = '\t')
+mac_all <- read.table('mac_all_chr19_final.txt', header = TRUE, sep = '\t')
 dir_out = 'C:/Users/sagee/OneDrive/Documents/GitHub/RAREsim_Example/'
 
 library(reshape2)
 
 melted_mac <- melt(mac, id = c('block', 'pop', 'data', 'rep'))
+melted_mac_all <- melt(mac_all, id = c('block', 'pop', 'data', 'rep'))
 head(melted_mac)
 table(melted_mac$pop, melted_mac$data)
 
 ### Separate gnomAD and the simulation data
 melted_gnom <- melted_mac[which(melted_mac$data == 'gnomAD'),]
-
 melted_mac1 <- melted_mac[-c(which(melted_mac$data == 'gnomAD')),]
+
+melted_gnom_all <- melted_mac_all[which(melted_mac_all$data == 'gnomAD' | melted_mac_all$data == 'gnomAD functional' | melted_mac_all$data == 'gnomAD synonymous'),]
+melted_mac1_all <- melted_mac_all[-c(which(melted_mac_all$data == 'gnomAD' | melted_mac_all$data == 'gnomAD functional' | melted_mac_all$data == 'gnomAD synonymous')),]
 
 
 bl <- 37  #block with median number of bases
@@ -32,10 +36,16 @@ melted_mac1$data <- as.character(melted_mac1$data)
 melted_mac1$data[which(melted_mac1$data  == 'HAPGEN2 over-simulated')] <- 'HAPGEN2 with all bp'
 melted_mac1$data[which(melted_mac1$data  == 'Original HAPGEN2')] <- 'HAPGEN2 with polymorphic SNVs'
 
+melted_mac1_all$data <- as.character(melted_mac1_all$data)
+melted_mac1_all$data[which(melted_mac1_all$data  == 'HAPGEN2 over-simulated')] <- 'HAPGEN2 with all bp'
+melted_mac1_all$data[which(melted_mac1_all$data  == 'Original HAPGEN2')] <- 'HAPGEN2 with polymorphic SNVs'
+
 
 cbPalette <- c("#56B4E9","#E69F00",  
                "#009E73", "#CC79A7", "#0072B2",
                "#D55E00")
+
+cbPalette <- c("#56B4E9", "#0072B2", "#D55E00", "#E69F00", "#009E73", "#CC79A7")
 
 for(bl in c(56,66)){ # 5th and 95th percentile for number of bases
   mm <- melted_mac1[which(melted_mac1$block  == bl),]
@@ -122,8 +132,10 @@ for(bl in c(56,66)){ # 5th and 95th percentile for number of bases
 
 
 for(bl in c(37)){ ## The median block
-  mm <- melted_mac1[which(melted_mac1$block  == bl),]
-  gm <- melted_gnom[which(melted_gnom$block  == bl),]
+  # mm <- melted_mac1[which(melted_mac1$block  == bl),]
+  # gm <- melted_gnom[which(melted_gnom$block  == bl),]
+  mm <- melted_mac1_all[which(melted_mac1_all$block  == bl),]
+  gm <- melted_gnom_all[which(melted_gnom_all$block  == bl),]
   
   pop <- 'AFR'
   p1 <- ggplot(mm[which(mm$pop == pop),], 
@@ -132,11 +144,12 @@ for(bl in c(37)){ ## The median block
     labs(y = 'Number of Variants', x = 'MAC Bin')+
     theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
     geom_point(data=gm[which(gm$pop == pop),],
-               aes(x=variable, y=value), shape  = 8)+
-    theme(legend.position="bottom" )+
+               aes(x=variable, y=value), shape  = rep(c(8, 1, 4), 7)) +
+    theme(legend.position="bottom")+
     theme(legend.title = element_blank()) +
-    theme(axis.title.x = element_blank())+
-    scale_color_manual(values=cbPalette)+
+    theme(axis.title.x = element_blank()) +
+    scale_color_manual(values=cbPalette) +
+    guides(color = guide_legend(override.aes=list(shape = c(8, 1, 4, 8, 8, 8)))) +
     theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
   p1
   
@@ -157,13 +170,14 @@ for(bl in c(37)){ ## The median block
   p3 <- ggplot(mm[which(mm$pop == pop),], 
                aes(x=variable, y=value , col = data)) +
     geom_boxplot() + 
-    labs(y = 'Number of Variants', x = 'MAC Bin')+
+    labs(y = 'Number of Variants', x = 'MAC Bin') +
     theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
     geom_point(data=gm[which(gm$pop == pop),],
-               aes(x=variable, y=value), shape  = 8)+
-    theme(axis.title.x = element_blank())+
-    theme(axis.title.y = element_blank())+
-    scale_color_manual(values=cbPalette)+
+               aes(x=variable, y=value), shape  = rep(c(8, 1, 4), 7)) +
+    theme(axis.title.x = element_blank()) +
+    theme(axis.title.y = element_blank()) +
+    scale_color_manual(values=cbPalette) +
+    guides(color = guide_legend(override.aes=list(shape = c(8, 1, 4, 8, 8, 8)))) +
     theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
   p3
   
@@ -187,7 +201,8 @@ for(bl in c(37)){ ## The median block
     tmp <- ggplot_gtable(ggplot_build(a.gplot))
     leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
     legend <- tmp$grobs[[leg]]
-    return(legend)}
+    return(legend)
+    }
   
   mylegend<-g_legend(p1)
   
@@ -198,6 +213,8 @@ for(bl in c(37)){ ## The median block
   
   # ggsave(file = paste0(dir_out, 'Block',bl,'main_2only.jpg'),
   #        plot = p5, height = 5, width = 8, units = 'in')
+  ggsave(file = paste0(dir_out, 'Block',bl,'main_2only_stratified.jpg'),
+         plot = p5, height = 5, width = 8, units = 'in')
   
   p6 <- grid.arrange(arrangeGrob(p2 + theme(legend.position="none") ,
                                  p4 + theme(legend.position="none"),
