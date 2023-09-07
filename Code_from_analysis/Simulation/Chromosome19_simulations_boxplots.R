@@ -7,10 +7,10 @@
 #### load in all the data:
 ##### Organized in the Chromosome19_simulation_data.R script
 
-setwd('/Users/megansorenson/Documents/Package/RAREsim_Example/Code_from_analysis/Simulation/')
-mac <- read.table('Simulation_results100reps_chr19_final.txt', header = TRUE,
-             sep = '\t')
-
+# setwd('/Users/megansorenson/Documents/Package/RAREsim_Example/Code_from_analysis/Simulation/')
+setwd('C:/Users/sagee/OneDrive/Documents/GitHub/RAREsim_Example/Code_from_analysis/Simulation/')
+mac <- read.table('Simulation_results100reps_chr19_final.txt', header = TRUE, sep = '\t')
+dir_out = 'C:/Users/sagee/OneDrive/Documents/GitHub/RAREsim_Example/'
 
 library(reshape2)
 
@@ -26,6 +26,7 @@ melted_mac1 <- melted_mac[-c(which(melted_mac$data == 'gnomAD')),]
 
 bl <- 37  #block with median number of bases
 library(ggplot2)
+library(gridExtra) # for grid.arrange
 
 melted_mac1$data <- as.character(melted_mac1$data)
 melted_mac1$data[which(melted_mac1$data  == 'HAPGEN2 over-simulated')] <- 'HAPGEN2 with all bp'
@@ -195,7 +196,7 @@ for(bl in c(37)){ ## The median block
                                  nrow=1),
                      mylegend, nrow=2,heights=c(10, 1.1))
   
-  # ggsave(file = paste0('Block',bl,'main_2only.jpg'),
+  # ggsave(file = paste0(dir_out, 'Block',bl,'main_2only.jpg'),
   #        plot = p5, height = 5, width = 8, units = 'in')
   
   p6 <- grid.arrange(arrangeGrob(p2 + theme(legend.position="none") ,

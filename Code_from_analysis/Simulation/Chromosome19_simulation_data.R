@@ -5,15 +5,18 @@
 #################
 
 ## gnomAD data:
-setwd('/Users/megansorenson/Documents/Package/RAREsim_Example/Code_from_analysis/Simulation/')
-gnom <- read.table('AFS_data_blocks_merged.txt',
-                   header =  TRUE, sep  = '\t')
+# setwd('/Users/megansorenson/Documents/Package/RAREsim_Example/Code_from_analysis/Simulation/')
+setwd('C:/Users/sagee/OneDrive/Documents/GitHub/RAREsim_Example/Stratified_Target_Data/')
+gnom_strat <- read.table('AFS_target_data_stratified.txt', header =  TRUE, sep  = '\t')
+nvar_gnom_strat <- read.table('Nvariants_target_data_stratified.txt', header =  TRUE, sep  = '\t')
+
+setwd('C:/Users/sagee/OneDrive/Documents/GitHub/RAREsim_Example/Code_from_analysis/Simulation/')
+gnom <- read.table('AFS_data_blocks_merged.txt', header =  TRUE, sep  = '\t')
 
 
-#### Expeted variants  based  on  the functions  we fit
+#### Expected variants based on the functions we fit
 ##### This is the goal that RAREsim will prune to:
-fit <- read.table('Expected_counts4raresim_final.txt',
-                  header = TRUE)
+fit <- read.table('Expected_counts4raresim_final.txt', header = TRUE)
 head(fit)
 
 block <- levels(as.factor(as.character(fit$block)))
