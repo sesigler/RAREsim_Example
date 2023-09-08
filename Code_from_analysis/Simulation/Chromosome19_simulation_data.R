@@ -10,6 +10,10 @@ setwd('C:/Users/sagee/OneDrive/Documents/GitHub/RAREsim_Example/Stratified_Targe
 gnom_strat <- read.table('AFS_target_data_stratified.txt', header =  TRUE, sep  = '\t')
 nvar_gnom_strat <- read.table('Nvariants_target_data_stratified.txt', header =  TRUE, sep  = '\t')
 
+library(data.table)
+setwd('C:/Users/sagee/OneDrive/Documents/GitHub/RAREsim_Example/Reference_Data/')
+
+
 ### Convert AFs to ACs
 # Note that the AFS is only for rare variants which is why the AFs don't sum to 1
 # or the ACs don't sume to the total
