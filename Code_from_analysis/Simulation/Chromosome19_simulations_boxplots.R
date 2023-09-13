@@ -6,39 +6,96 @@
 
 #### load in all the data:
 ##### Organized in the Chromosome19_simulation_data.R script
-
-# setwd('/Users/megansorenson/Documents/Package/RAREsim_Example/Code_from_analysis/Simulation/')
-setwd('C:/Users/sagee/OneDrive/Documents/GitHub/RAREsim_Example/Code_from_analysis/Simulation/')
-mac <- read.table('Simulation_results100reps_chr19_final.txt', header = TRUE, sep = '\t')
-mac_all <- read.table('mac_all_chr19_final.txt', header = TRUE, sep = '\t')
-dir_out = 'C:/Users/sagee/OneDrive/Documents/GitHub/RAREsim_Example/'
-
 library(reshape2)
-
-melted_mac <- melt(mac, id = c('block', 'pop', 'data', 'rep'))
-melted_mac_all <- melt(mac_all, id = c('block', 'pop', 'data', 'rep'))
-head(melted_mac)
-table(melted_mac$pop, melted_mac$data)
-
-### Separate gnomAD and the simulation data
-melted_gnom <- melted_mac[which(melted_mac$data == 'gnomAD'),]
-melted_mac1 <- melted_mac[-c(which(melted_mac$data == 'gnomAD')),]
-
-melted_gnom_all <- melted_mac_all[which(melted_mac_all$data == 'gnomAD' | melted_mac_all$data == 'gnomAD functional' | melted_mac_all$data == 'gnomAD synonymous'),]
-melted_mac1_all <- melted_mac_all[-c(which(melted_mac_all$data == 'gnomAD' | melted_mac_all$data == 'gnomAD functional' | melted_mac_all$data == 'gnomAD synonymous')),]
-
-
-bl <- 37  #block with median number of bases
 library(ggplot2)
 library(gridExtra) # for grid.arrange
+library(grid) # for textGrob and gpar
 
-melted_mac1$data <- as.character(melted_mac1$data)
-melted_mac1$data[which(melted_mac1$data  == 'HAPGEN2 over-simulated')] <- 'HAPGEN2 with all bp'
-melted_mac1$data[which(melted_mac1$data  == 'Original HAPGEN2')] <- 'HAPGEN2 with polymorphic SNVs'
+g_legend <- function(a.gplot){
+  tmp <- ggplot_gtable(ggplot_build(a.gplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)
+}
 
-melted_mac1_all$data <- as.character(melted_mac1_all$data)
-melted_mac1_all$data[which(melted_mac1_all$data  == 'HAPGEN2 over-simulated')] <- 'HAPGEN2 with all bp'
-melted_mac1_all$data[which(melted_mac1_all$data  == 'Original HAPGEN2')] <- 'HAPGEN2 with polymorphic SNVs'
+Pop1 = 'AFR'
+Pop2 = 'NFE'
+Nsim = 20000
+p_case = 120
+p_conf1 = 99
+p_conf2 = 80
+bl <- 37  #block with median number of bases
+
+dir_in <- 'C:/Users/sagee/Documents/GitHub/masters_project/'
+dir_out = 'C:/Users/sagee/Documents/GitHub/masters_project/'
+# dir_out = 'C:/Users/sagee/Documents/GitHub/RAREsim_Example/'
+
+# data frames to store all observed and expected values
+obs_mac = c()
+exp_mac = data.frame(matrix(nrow = 7, ncol = 9))
+
+# Load in observed data (RAREsim)
+fun_pcase = read.table(paste0(dir_in, 'obs_MACbin_fun', p_case, '.csv'), header = T, sep = ',')
+fun_exp = read.table(paste0(dir_in, 'obs_MACbin_fun100.csv'), header = T, sep = ',')
+fun_pconf1 = read.table(paste0(dir_in, 'obs_MACbin_fun', p_conf1, '.csv'), header = T, sep = ',')
+fun_pconf2 = read.table(paste0(dir_in, 'obs_MACbin_fun', p_conf2, '.csv'), header = T, sep = ',')
+syn_exp = read.table(paste0(dir_in, 'obs_MACbin_syn100.csv'), header = T, sep = ',')
+syn_pconf1 = read.table(paste0(dir_in, 'obs_MACbin_syn', p_conf1, '.csv'), header = T, sep = ',')
+syn_pconf2 = read.table(paste0(dir_in, 'obs_MACbin_syn', p_conf2, '.csv'), header = T, sep = ',')
+
+# Load in expected data (gnomAD)
+exp_fun_case = read.table(paste0(dir_in, 'MAC_bin_estimates_', Nsim, "_", Pop2, '_fun_', p_case,  '.txt'), header=T, sep='\t')
+exp_fun = read.table(paste0(dir_in, 'MAC_bin_estimates_', Nsim, "_", Pop2, '_fun_100.txt'), header=T, sep='\t')
+exp_fun_conf1 = read.table(paste0(dir_in, 'MAC_bin_estimates_', Nsim, "_", Pop2, '_fun_', p_conf1, '.txt'), header=T, sep='\t')
+exp_fun_conf2 = read.table(paste0(dir_in, 'MAC_bin_estimates_', Nsim, "_", Pop2, '_fun_', p_conf2, '.txt'), header=T, sep='\t')
+exp_syn = read.table(paste0(dir_in, 'MAC_bin_estimates_', Nsim, "_", Pop2, '_syn_100.txt'), header=T, sep='\t')
+exp_syn_conf1 = read.table(paste0(dir_in, 'MAC_bin_estimates_', Nsim, "_", Pop2, '_syn_', p_conf1, '.txt'), header=T, sep='\t')
+exp_syn_conf2 = read.table(paste0(dir_in, 'MAC_bin_estimates_', Nsim, "_", Pop2, '_syn_', p_conf2, '.txt'), header=T, sep='\t')
+
+# Form the data frames for the observed and expected counts
+obs_mac <- rbind(fun_pcase, fun_exp, fun_pconf1, fun_pconf2, syn_exp, syn_pconf1, syn_pconf2)
+colnames(obs_mac) <- c('Singletons', 'Doubletons', 'MAC=3-5', 'MAC=6-10', 'MAC=11-20',
+                       'MAC=21-MAF=0.5%', 'MAF=0.5%-1%', 'rep', 'data')
+
+exp_mac[1:7, 1:7] <- rbind(exp_fun_case$Expected_var, exp_fun$Expected_var, 
+                           exp_fun_conf1$Expected_var, exp_fun_conf2$Expected_var,
+                           exp_syn$Expected_var, exp_syn_conf1$Expected_var, 
+                           exp_syn_conf2$Expected_var)
+colnames(exp_mac) <- colnames(obs_mac)
+exp_mac$rep <- '.'
+exp_mac$data <- c('gnomAD functional-120%', 'gnomAD functional-100%', 
+                  'gnomAD functional-99%', 'gnomAD functional-80%',
+                  'gnomAD synonymous-100%', 'gnomAD synonymous-99%',
+                  'gnomAD synonymous-80%')
+
+# Combine the observed and expected data into one dataframe
+melted_obs <- melt(obs_mac, id = c('data', 'rep'))
+melted_exp <- melt(exp_mac, id = c('data', 'rep'))
+
+# setwd('/Users/megansorenson/Documents/Package/RAREsim_Example/Code_from_analysis/Simulation/')
+# setwd('C:/Users/sagee/Documents/GitHub/RAREsim_Example/Code_from_analysis/Simulation/')
+# mac <- read.table('Simulation_results100reps_chr19_final.txt', header = TRUE, sep = '\t')
+# mac_all <- read.table('mac_all_chr19_final.txt', header = TRUE, sep = '\t')
+# melted_mac <- melt(mac, id = c('block', 'pop', 'data', 'rep'))
+# melted_mac_all <- melt(mac_all, id = c('block', 'pop', 'data', 'rep'))
+# head(melted_mac)
+# table(melted_mac$pop, melted_mac$data)
+
+
+### Separate gnomAD and the simulation data
+# melted_gnom <- melted_mac[which(melted_mac$data == 'gnomAD'),]
+# melted_mac1 <- melted_mac[-c(which(melted_mac$data == 'gnomAD')),]
+
+# melted_gnom_all <- melted_mac_all[which(melted_mac_all$data == 'gnomAD functional-120%' | melted_mac_all$data == 'gnomAD functional-100%' | melted_mac_all$data == 'gnomAD functional-99%'),]
+# melted_mac1_all <- melted_mac_all[-c(which(melted_mac_all$data == 'gnomAD' | melted_mac_all$data == 'gnomAD functional' | melted_mac_all$data == 'gnomAD synonymous')),]
+
+# melted_mac1$data <- as.character(melted_mac1$data)
+# melted_mac1$data[which(melted_mac1$data  == 'HAPGEN2 over-simulated')] <- 'HAPGEN2 with all bp'
+# melted_mac1$data[which(melted_mac1$data  == 'Original HAPGEN2')] <- 'HAPGEN2 with polymorphic SNVs'
+# 
+# melted_mac1_all$data <- as.character(melted_mac1_all$data)
+# melted_mac1_all$data[which(melted_mac1_all$data  == 'HAPGEN2 over-simulated')] <- 'HAPGEN2 with all bp'
+# melted_mac1_all$data[which(melted_mac1_all$data  == 'Original HAPGEN2')] <- 'HAPGEN2 with polymorphic SNVs'
 
 
 cbPalette <- c("#56B4E9","#E69F00",  
@@ -47,95 +104,292 @@ cbPalette <- c("#56B4E9","#E69F00",
 
 cbPalette <- c("#56B4E9", "#0072B2", "#D55E00", "#E69F00", "#009E73", "#CC79A7")
 
-for(bl in c(56,66)){ # 5th and 95th percentile for number of bases
-  mm <- melted_mac1[which(melted_mac1$block  == bl),]
-  gm <- melted_gnom[which(melted_gnom$block  == bl),]
-  
-  
-  pop <- 'AFR'
-  p1 <- ggplot(mm[which(mm$pop == pop),], 
-               aes(x=variable, y=value , col = data)) +
-    geom_boxplot() + 
-    labs(y = 'Number of Variants', x = 'MAC Bin')+
-    theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
-    geom_point(data=gm[which(gm$pop == pop),],
-               aes(x=variable, y=value), shape  = 8)+
-    theme(legend.position="bottom" )+
-    theme(legend.title = element_blank()) +
-    theme(axis.title.x = element_blank())+
-    scale_color_manual(values=cbPalette)+
-    theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
-  p1
-  
-  pop <- 'EAS'
-  p2 <- ggplot(mm[which(mm$pop == pop),], 
-               aes(x=variable, y=value , col = data)) +
-    geom_boxplot() + 
-    labs(y = 'Number of Variants', x = 'MAC Bin')+
-    theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
-    geom_point(data=gm[which(gm$pop == pop),],
-               aes(x=variable, y=value), shape  = 8)+
-    theme(axis.title.x = element_blank())+
-    theme(axis.title.y = element_blank())+
-    scale_color_manual(values=cbPalette)+
-    theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
-  p2
-  
-  pop <- 'NFE'
-  p3 <- ggplot(mm[which(mm$pop == pop),], 
-               aes(x=variable, y=value , col = data)) +
-    geom_boxplot() + 
-    labs(y = 'Number of Variants', x = 'MAC Bin')+
-    theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
-    geom_point(data=gm[which(gm$pop == pop),],
-               aes(x=variable, y=value), shape  = 8)+
-    theme(axis.title.x = element_blank())+
-    theme(axis.title.y = element_blank())+
-    scale_color_manual(values=cbPalette)+
-    theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
-  p3
-  
-  pop <- 'SAS'
-  p4 <- ggplot(mm[which(mm$pop == pop),], 
-               aes(x=variable, y=value , col = data)) +
-    geom_boxplot() + 
-    labs(y = 'Number of Variants', x = 'MAC Bin')+
-    theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
-    geom_point(data=gm[which(gm$pop == pop),],
-               aes(x=variable, y=value), shape  = 8)+
-    theme(axis.title.x = element_blank())+
-    theme(axis.title.y = element_blank())+
-    scale_color_manual(values=cbPalette)+
-    theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
-  p4 
-  
-  
-  #####  try to extract the legend:
-  g_legend<-function(a.gplot){
-    tmp <- ggplot_gtable(ggplot_build(a.gplot))
-    leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
-    legend <- tmp$grobs[[leg]]
-    return(legend)}
-  
-  mylegend<-g_legend(p1)
-  
-  p5 <- grid.arrange(arrangeGrob(p1 + theme(legend.position="none"),
-                                 p2 + theme(legend.position="none"),
-                                 p3 + theme(legend.position="none"),
-                                 p4 + theme(legend.position="none"),
-                                 nrow=1),
-                     mylegend, nrow=2,heights=c(10, 1.1))
-  
-  # ggsave(file = paste0('Block',bl,'main.jpg'),
-  #        plot = p5, height = 5, width = 10, units = 'in')
-}
+cols_fun <- c("#009E73", "#CC79A7") #Functional
+cols_syn <- c("#0072B2", "#D55E00") #Synonymous
+cols_all <- c("#009E73", "#0072B2", "#CC79A7", "#D55E00")
+
+# Functional-120%
+fun120 <- ggplot(subset(melted_obs, data %in% paste0('RAREsim functional-', p_case, '%')), 
+             aes(x=variable, y=value , col = data)) +
+  geom_boxplot() + 
+  labs(title = paste0('Observed vs Expected Number of Variants per MAC bin \nPop: 100% NFE \nPruning: ', p_case, '% Functional'), 
+       y = 'Number of Variants', x = 'MAC Bins') +
+  theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
+  geom_point(data=subset(melted_exp, data %in% paste0('gnomAD functional-', p_case, '%')),
+             aes(x=variable, y=value), shape  = 8) +
+  # theme(axis.title.x = element_blank()) +
+  # theme(axis.title.y = element_blank()) +
+  scale_color_manual(values=cols_fun) +
+  # guides(color = guide_legend(override.aes=list(shape = c(8, 1, 4, 8, 8, 8)))) +
+  theme(legend.position = "bottom") +
+  theme(plot.margin = unit(c(0.2, 0.5, 0.1, 0.2), "cm"))
+fun120
+ggsave(file = paste0(dir_out, 'obs_v_exp_MACbins_', Pop2, '_fun', p_case, '.jpg'),
+       plot = fun120, height = 8, width = 12, units = 'in')
+
+# Functional-100%
+fun100 <- ggplot(subset(melted_obs, data %in% 'RAREsim functional-100%'), 
+             aes(x=variable, y=value , col = data)) +
+  geom_boxplot() + 
+  labs(title = 'Pruning: 100% Functional', y = 'Number of Variants', x = 'MAC Bins') +
+  theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
+  geom_point(data=subset(melted_exp, data %in% 'gnomAD functional-100%'),
+             aes(x=variable, y=value), shape  = 8) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_blank()) +
+  scale_color_manual(values=cols_fun) +
+  # guides(color = guide_legend(override.aes=list(shape = c(8, 1, 4, 8, 8, 8)))) +
+  theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
+fun100
+
+# Synonymous-100%
+syn100 <- ggplot(subset(melted_obs, data %in% 'RAREsim synonymous-100%'), 
+             aes(x=variable, y=value , col = data)) +
+  geom_boxplot() + 
+  labs(title = 'Pruning: 100% Synonymous', y = 'Number of Variants', x = 'MAC Bins') +
+  theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
+  geom_point(data=subset(melted_exp, data %in% 'gnomAD synonymous-100%'),
+             aes(x=variable, y=value), shape  = 8) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_blank()) +
+  scale_color_manual(values=cols_syn) +
+  # guides(color = guide_legend(override.aes=list(shape = c(8, 1, 4, 8, 8, 8)))) +
+  theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
+syn100
+
+# Functional-99%
+fun99 <- ggplot(subset(melted_obs, data %in% paste0('RAREsim functional-', p_conf1, '%')), 
+                 aes(x=variable, y=value , col = data)) +
+  geom_boxplot() + 
+  labs(title = paste0('Pruning: ', p_conf1, '% Functional'), 
+       y = 'Number of Variants', x = 'MAC Bins') +
+  theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
+  geom_point(data=subset(melted_exp, data %in% paste0('gnomAD functional-', p_conf1, '%')),
+             aes(x=variable, y=value), shape  = 8) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_blank()) +
+  scale_color_manual(values=cols_fun) +
+  # guides(color = guide_legend(override.aes=list(shape = c(8, 1, 4, 8, 8, 8)))) +
+  theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
+fun99
+
+# Synonymous-99%
+syn99 <- ggplot(subset(melted_obs, data %in% paste0('RAREsim synonymous-', p_conf1, '%')), 
+                 aes(x=variable, y=value , col = data)) +
+  geom_boxplot() + 
+  labs(title = paste0('Pruning: ', p_conf1, '% Synonymous'), 
+       y = 'Number of Variants', x = 'MAC Bins') +
+  theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
+  geom_point(data=subset(melted_exp, data %in% paste0('gnomAD synonymous-', p_conf1, '%')),
+             aes(x=variable, y=value), shape  = 8) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_blank()) +
+  scale_color_manual(values=cols_syn) +
+  # guides(color = guide_legend(override.aes=list(shape = c(8, 1, 4, 8, 8, 8)))) +
+  theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
+syn99
+
+# Functional-80%
+fun80 <- ggplot(subset(melted_obs, data %in% paste0('RAREsim functional-', p_conf2, '%')), 
+                aes(x=variable, y=value , col = data)) +
+  geom_boxplot() + 
+  labs(title = paste0('Pruning: ', p_conf2, '% Functional'), 
+       y = 'Number of Variants', x = 'MAC Bins') +
+  theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
+  geom_point(data=subset(melted_exp, data %in% paste0('gnomAD functional-', p_conf2, '%')),
+             aes(x=variable, y=value), shape  = 8) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_blank()) +
+  scale_color_manual(values=cols_fun) +
+  # guides(color = guide_legend(override.aes=list(shape = c(8, 1, 4, 8, 8, 8)))) +
+  theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
+fun80
+
+# Synonymous-80%
+syn80 <- ggplot(subset(melted_obs, data %in% paste0('RAREsim synonymous-', p_conf2, '%')), 
+                aes(x=variable, y=value , col = data)) +
+  geom_boxplot() + 
+  labs(title = paste0('Pruning: ', p_conf2, '% Synonymous'), 
+       y = 'Number of Variants', x = 'MAC Bins') +
+  theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
+  geom_point(data=subset(melted_exp, data %in% paste0('gnomAD synonymous-', p_conf2, '%')),
+             aes(x=variable, y=value), shape  = 8) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_blank()) +
+  scale_color_manual(values=cols_syn) +
+  # guides(color = guide_legend(override.aes=list(shape = c(8, 1, 4, 8, 8, 8)))) +
+  theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
+syn80
+
+### SAVE THE PLOTS ###
+# Extract the legend for each pruning scenario
+both100 <- ggplot(subset(melted_obs, data %in% c('RAREsim functional-100%', 'RAREsim synonymous-100%')), 
+                 aes(x=variable, y=value , col = data)) +
+  geom_boxplot() + 
+  labs(y = 'Number of Variants', x = 'MAC Bins') +
+  theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
+  geom_point(data=subset(melted_exp, data %in% c('gnomAD functional-100%', 'gnomAD synonymous-100%')),
+             aes(x=variable, y=value), shape  = 8) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_blank()) +
+  scale_color_manual(values=cols_all) +
+  theme(legend.position = "bottom") +
+  theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
+
+both99 <- ggplot(subset(melted_obs, data %in% c('RAREsim functional-99%', 'RAREsim synonymous-99%')), 
+                  aes(x=variable, y=value , col = data)) +
+  geom_boxplot() + 
+  labs(y = 'Number of Variants', x = 'MAC Bins') +
+  theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
+  geom_point(data=subset(melted_exp, data %in% c('gnomAD functional-99%', 'gnomAD synonymous-99%')),
+             aes(x=variable, y=value), shape  = 8) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_blank()) +
+  scale_color_manual(values=cols_all) +
+  theme(legend.position = "bottom") +
+  theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
+
+both80 <- ggplot(subset(melted_obs, data %in% c('RAREsim functional-80%', 'RAREsim synonymous-80%')), 
+                 aes(x=variable, y=value , col = data)) +
+  geom_boxplot() + 
+  labs(y = 'Number of Variants', x = 'MAC Bins') +
+  theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
+  geom_point(data=subset(melted_exp, data %in% c('gnomAD functional-80%', 'gnomAD synonymous-80%')),
+             aes(x=variable, y=value), shape  = 8) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_blank()) +
+  scale_color_manual(values=cols_all) +
+  theme(legend.position = "bottom") +
+  theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
+
+leg100 <- g_legend(both100)
+leg99 <- g_legend(both99)
+leg80 <- g_legend(both80)
+
+# Combine the Functional and Synonymous plots into one figure
+pruned100 <- grid.arrange(arrangeGrob(fun100 + theme(legend.position="none"),
+                                      syn100 + theme(legend.position="none"),
+                                      nrow=1),
+                         leg100, nrow=2, heights = c(10, 1),
+                         left = 'Number of Variants',
+                         top = textGrob('100% NFE: Observed vs Expected Number of Variants per MAC bin',
+                                        gp = gpar(fontsize = 18, font = 1)))
+# Save the plot
+ggsave(file = paste0(dir_out, 'obs_v_exp_MACbins_', Pop2, '_fun100_syn100.jpg'),
+       plot = pruned100, height = 8, width = 12, units = 'in')
+
+pruned99 <- grid.arrange(arrangeGrob(fun99 + theme(legend.position="none"),
+                                     syn99 + theme(legend.position="none"),
+                                     nrow=1),
+                          leg99, nrow=2, heights = c(10, 1),
+                          left = 'Number of Variants',
+                          top = textGrob('100% NFE: Observed vs Expected Number of Variants per MAC bin',
+                                         gp = gpar(fontsize = 18, font = 1)))
+# Save the plot
+ggsave(file = paste0(dir_out, 'obs_v_exp_MACbins_', Pop2, '_fun', p_conf1, '_syn', p_conf1, '.jpg'),
+       plot = pruned99, height = 8, width = 12, units = 'in')
+
+pruned80 <- grid.arrange(arrangeGrob(fun80 + theme(legend.position="none"),
+                                     syn80 + theme(legend.position="none"),
+                                     nrow=1),
+                         leg80, nrow=2, heights = c(10, 1),
+                         left = 'Number of Variants',
+                         top = textGrob('100% NFE: Observed vs Expected Number of Variants per MAC bin',
+                                        gp = gpar(fontsize = 18, font = 1)))
+# Save the plot
+ggsave(file = paste0(dir_out, 'obs_v_exp_MACbins_', Pop2, '_fun', p_conf2, '_syn', p_conf2, '.jpg'),
+       plot = pruned80, height = 8, width = 12, units = 'in')
+
+
+# for(bl in c(56,66)){ # 5th and 95th percentile for number of bases
+#   mm <- melted_mac1[which(melted_mac1$block  == bl),]
+#   gm <- melted_gnom[which(melted_gnom$block  == bl),]
+#   
+#   
+#   pop <- 'AFR'
+#   p1 <- ggplot(mm[which(mm$pop == pop),], 
+#                aes(x=variable, y=value , col = data)) +
+#     geom_boxplot() + 
+#     labs(y = 'Number of Variants', x = 'MAC Bin')+
+#     theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
+#     geom_point(data=gm[which(gm$pop == pop),],
+#                aes(x=variable, y=value), shape  = 8)+
+#     theme(legend.position="bottom" )+
+#     theme(legend.title = element_blank()) +
+#     theme(axis.title.x = element_blank())+
+#     scale_color_manual(values=cbPalette)+
+#     theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
+#   p1
+#   
+#   pop <- 'EAS'
+#   p2 <- ggplot(mm[which(mm$pop == pop),], 
+#                aes(x=variable, y=value , col = data)) +
+#     geom_boxplot() + 
+#     labs(y = 'Number of Variants', x = 'MAC Bin')+
+#     theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
+#     geom_point(data=gm[which(gm$pop == pop),],
+#                aes(x=variable, y=value), shape  = 8)+
+#     theme(axis.title.x = element_blank())+
+#     theme(axis.title.y = element_blank())+
+#     scale_color_manual(values=cbPalette)+
+#     theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
+#   p2
+#   
+#   pop <- 'NFE'
+#   p3 <- ggplot(mm[which(mm$pop == pop),], 
+#                aes(x=variable, y=value , col = data)) +
+#     geom_boxplot() + 
+#     labs(y = 'Number of Variants', x = 'MAC Bin')+
+#     theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
+#     geom_point(data=gm[which(gm$pop == pop),],
+#                aes(x=variable, y=value), shape  = 8)+
+#     theme(axis.title.x = element_blank())+
+#     theme(axis.title.y = element_blank())+
+#     scale_color_manual(values=cbPalette)+
+#     theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
+#   p3
+#   
+#   pop <- 'SAS'
+#   p4 <- ggplot(mm[which(mm$pop == pop),], 
+#                aes(x=variable, y=value , col = data)) +
+#     geom_boxplot() + 
+#     labs(y = 'Number of Variants', x = 'MAC Bin')+
+#     theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
+#     geom_point(data=gm[which(gm$pop == pop),],
+#                aes(x=variable, y=value), shape  = 8)+
+#     theme(axis.title.x = element_blank())+
+#     theme(axis.title.y = element_blank())+
+#     scale_color_manual(values=cbPalette)+
+#     theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
+#   p4 
+#   
+#   
+#   #####  try to extract the legend:
+#   g_legend<-function(a.gplot){
+#     tmp <- ggplot_gtable(ggplot_build(a.gplot))
+#     leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+#     legend <- tmp$grobs[[leg]]
+#     return(legend)}
+#   
+#   mylegend<-g_legend(p1)
+#   
+#   p5 <- grid.arrange(arrangeGrob(p1 + theme(legend.position="none"),
+#                                  p2 + theme(legend.position="none"),
+#                                  p3 + theme(legend.position="none"),
+#                                  p4 + theme(legend.position="none"),
+#                                  nrow=1),
+#                      mylegend, nrow=2,heights=c(10, 1.1))
+#   
+#   # ggsave(file = paste0('Block',bl,'main.jpg'),
+#   #        plot = p5, height = 5, width = 10, units = 'in')
+# }
 
 
 for(bl in c(37)){ ## The median block
   # mm <- melted_mac1[which(melted_mac1$block  == bl),]
   # gm <- melted_gnom[which(melted_gnom$block  == bl),]
-  mm <- melted_mac1_all[which(melted_mac1_all$block  == bl),]
-  gm <- melted_gnom_all[which(melted_gnom_all$block  == bl),]
+  # mm <- melted_mac1_all[which(melted_mac1_all$block  == bl),]
+  # gm <- melted_gnom_all[which(melted_gnom_all$block  == bl),]
   
   pop <- 'AFR'
   p1 <- ggplot(mm[which(mm$pop == pop),], 
@@ -153,47 +407,47 @@ for(bl in c(37)){ ## The median block
     theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
   p1
   
-  pop <- 'EAS'
-  p2 <- ggplot(mm[which(mm$pop == pop),], 
-               aes(x=variable, y=value , col = data)) +
-    geom_boxplot() + 
-    labs(y = 'Number of Variants', x = 'MAC Bin')+
-    theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
-    geom_point(data=gm[which(gm$pop == pop),],
-               aes(x=variable, y=value), shape  = 8)+
-    theme(axis.title.x = element_blank())+
-    scale_color_manual(values=cbPalette)+
-    theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
-  p2
+  # pop <- 'EAS'
+  # p2 <- ggplot(mm[which(mm$pop == pop),], 
+  #              aes(x=variable, y=value , col = data)) +
+  #   geom_boxplot() + 
+  #   labs(y = 'Number of Variants', x = 'MAC Bin')+
+  #   theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
+  #   geom_point(data=gm[which(gm$pop == pop),],
+  #              aes(x=variable, y=value), shape  = 8)+
+  #   theme(axis.title.x = element_blank())+
+  #   scale_color_manual(values=cbPalette)+
+  #   theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
+  # p2
   
-  pop <- 'NFE'
-  p3 <- ggplot(mm[which(mm$pop == pop),], 
+  # pop <- 'NFE'
+  p3 <- ggplot(melted_obs[which(melted_obs$data == 'RAREsim functional-120%'),], 
                aes(x=variable, y=value , col = data)) +
     geom_boxplot() + 
     labs(y = 'Number of Variants', x = 'MAC Bin') +
     theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
-    geom_point(data=gm[which(gm$pop == pop),],
-               aes(x=variable, y=value), shape  = rep(c(8, 1, 4), 7)) +
+    geom_point(data=melted_exp[which(melted_exp$data == 'gnomAD functional-120%'),],
+               aes(x=variable, y=value), shape  = 8) +
     theme(axis.title.x = element_blank()) +
     theme(axis.title.y = element_blank()) +
-    scale_color_manual(values=cbPalette) +
-    guides(color = guide_legend(override.aes=list(shape = c(8, 1, 4, 8, 8, 8)))) +
+    # scale_color_manual(values=cbPalette) +
+    # guides(color = guide_legend(override.aes=list(shape = c(8, 1, 4, 8, 8, 8)))) +
     theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
   p3
   
-  pop <- 'SAS'
-  p4 <- ggplot(mm[which(mm$pop == pop),], 
-               aes(x=variable, y=value , col = data)) +
-    geom_boxplot() + 
-    labs(y = 'Number of Variants', x = 'MAC Bin')+
-    theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
-    geom_point(data=gm[which(gm$pop == pop),],
-               aes(x=variable, y=value), shape  = 8)+
-    theme(axis.title.x = element_blank())+
-    theme(axis.title.y = element_blank())+
-    scale_color_manual(values=cbPalette)+
-    theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
-  p4 
+  # pop <- 'SAS'
+  # p4 <- ggplot(mm[which(mm$pop == pop),], 
+  #              aes(x=variable, y=value , col = data)) +
+  #   geom_boxplot() + 
+  #   labs(y = 'Number of Variants', x = 'MAC Bin')+
+  #   theme(axis.text.x = element_text(angle = 35, hjust=0.65)) +
+  #   geom_point(data=gm[which(gm$pop == pop),],
+  #              aes(x=variable, y=value), shape  = 8)+
+  #   theme(axis.title.x = element_blank())+
+  #   theme(axis.title.y = element_blank())+
+  #   scale_color_manual(values=cbPalette)+
+  #   theme(plot.margin = unit(c(0.2,0.5,0.1,0.2), "cm"))
+  # p4 
   
   
   ##### Extract the legend:
