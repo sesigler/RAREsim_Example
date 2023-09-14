@@ -10,6 +10,7 @@ library(reshape2)
 library(ggplot2)
 library(gridExtra) # for grid.arrange
 library(grid) # for textGrob and gpar
+library(data.table) # for fwrite
 
 g_legend <- function(a.gplot){
   tmp <- ggplot_gtable(ggplot_build(a.gplot))
@@ -51,6 +52,31 @@ exp_fun_conf2 = read.table(paste0(dir_in, 'MAC_bin_estimates_', Nsim, "_", Pop2,
 exp_syn = read.table(paste0(dir_in, 'MAC_bin_estimates_', Nsim, "_", Pop2, '_syn_100.txt'), header=T, sep='\t')
 exp_syn_conf1 = read.table(paste0(dir_in, 'MAC_bin_estimates_', Nsim, "_", Pop2, '_syn_', p_conf1, '.txt'), header=T, sep='\t')
 exp_syn_conf2 = read.table(paste0(dir_in, 'MAC_bin_estimates_', Nsim, "_", Pop2, '_syn_', p_conf2, '.txt'), header=T, sep='\t')
+
+### CREATE TABLE of avg num of varints per bin for each pruning step
+avg_vars <- data.frame(matrix(nrow = 7, ncol = 7))
+colnames(avg_vars) <- c('Singletons', 'Doubletons', 'MAC=3-5', 'MAC=6-10', 'MAC=11-20',
+                       'MAC=21-MAF=0.5%', 'MAF=0.5%-1%')
+rownames(avg_vars) <- c('RAREsim functional-120%', 'RAREsim functional-100%', 
+                        'RAREsim functional-99%', 'RAREsim functional-80%',
+                        'RAREsim synonymous-100%', 'RAREsim synonymous-99%',
+                        'RAREsim synonymous-80%')
+avg_vars[1, ] <- lapply(fun_pcase[, 1:7], mean)
+avg_vars[2, ] <- lapply(fun_exp[, 1:7], mean)
+avg_vars[3, ] <- lapply(fun_pconf1[, 1:7], mean)
+avg_vars[4, ] <- lapply(fun_pconf2[, 1:7], mean)
+avg_vars[5, ] <- lapply(syn_exp[, 1:7], mean)
+avg_vars[6, ] <- lapply(syn_pconf1[, 1:7], mean)
+avg_vars[7, ] <- lapply(syn_pconf2[, 1:7], mean)
+
+fwrite(avg_vars, paste0(dir_out, 'avg_variants_per_MACbin.csv'), quote=F, row.names=T, col.names=T, sep=',')
+
+exp_all <- cbind(exp_fun_case, exp_fun[, 3], exp_fun_conf1[, 3], exp_fun_conf2[, 3],
+                 exp_syn[, 3], exp_syn_conf1[, 3], exp_syn_conf2[, 3])
+colnames(exp_all) <- c('Lower', 'Upper', 'Expected_var-Fun 120%', 'Expected_var-Fun 100%',
+                       'Expected_var-Fun 99%', 'Expected_var-Fun 80%','Expected_var-Syn 100%',
+                       'Expected_var-Syn 99%', 'Expected_var-Syn 80%')
+fwrite(exp_all, paste0(dir_out, 'exp_variants_per_MACbin_20000_NFE_all.csv'), quote=F, row.names=F, col.names=T, sep=',')
 
 # Form the data frames for the observed and expected counts
 obs_mac <- rbind(fun_pcase, fun_exp, fun_pconf1, fun_pconf2, syn_exp, syn_pconf1, syn_pconf2)
